@@ -1,0 +1,10 @@
+{
+    "name": "cbn-momentjs",
+    "private": true,
+    "main": "index.html",
+    "dependencies": {
+    },
+    "devDependencies": {
+    },
+    "version": "0.1"
+}

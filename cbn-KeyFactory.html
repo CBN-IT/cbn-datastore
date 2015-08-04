@@ -1,0 +1,518 @@
+<script>
+	(function(scope) {
+
+		scope.KeyFactory = {};
+
+		KeyFactory.stringToKey = function (encoded) {
+			var modulo = encoded.length % 4;
+			if (modulo != 0) {
+				encoded = encoded + "====".substring(modulo);
+			}
+
+			var encodedBytes = encoded.getBytes();
+			var decodedBytes = Base64.decodeWebSafe(encodedBytes, 0, encodedBytes.length);
+			var reference = new Reference();
+			var parsedFrom = reference.parseFrom(decodedBytes);
+			var key = createFromPb(reference);
+			return key;
+		};
+		var createFromPb = function (reference) {
+			var parentKey = null;
+			var path = reference.getPath();
+			var elements = path.elements();
+			if (elements.length == 0) {
+				throw new Error("IllegalArgumentException : Invalid Key PB: no elements.");
+			} else {
+				var appIdNamespace = {
+					"appid": reference.getApp(),
+					"namespace": reference.getNameSpace()
+				};
+				for (var i in elements) {
+					var e = elements[i];
+					var kind = e.getType();
+					if (e.hasName() && e.hasId()) {
+						throw new Error("IllegalArgumentException: Invalid Key PB: both id and name are set.");
+					}
+
+					if (e.hasName()) {
+						parentKey = {
+							kind: kind,
+							parentKey: parentKey,
+							id: 0,
+							name: e.getName(),
+							appid: appIdNamespace.appid,
+							namespace: appIdNamespace.namespace
+						};
+					} else if (e.hasId()) {
+						parentKey = {
+							kind: kind,
+							parentKey: parentKey,
+							id: e.getId(),
+							name: "",
+							appid: appIdNamespace.appid,
+							namespace: appIdNamespace.namespace
+						};
+					} else {
+						parentKey = parentKey = {
+							kind: kind,
+							parentKey: parentKey,
+							id: 0,
+							name: "",
+							appid: appIdNamespace.appid,
+							namespace: appIdNamespace.namespace
+						};
+					}
+				}
+
+				return parentKey;
+			}
+		};
+
+		var System = {};
+		System.arraycopy = function () { // src, srcPos, dest, destPos, length) {
+			var src, srcPos = 0, dest, destPos = 0, length;
+
+			if (arguments.length === 2) {
+				// recall itself and copy src to dest from start index 0 to 0 of src.length
+				src = arguments[0];
+				dest = arguments[1];
+				length = src.length;
+			} else if (arguments.length === 3) {
+				// recall itself and copy src to dest from start index 0 to 0 of length
+				src = arguments[0];
+				dest = arguments[1];
+				length = arguments[2];
+			} else if (arguments.length === 5) {
+				src = arguments[0];
+				srcPos = arguments[1];
+				dest = arguments[2];
+				destPos = arguments[3];
+				length = arguments[4];
+			}
+
+			// copy src to dest from index srcPos to index destPos of length recursivly on objects
+			for (var i = srcPos, j = destPos; i < length + srcPos; i++, j++) {
+				dest[j] = src[i];
+			}
+		};
+		System.bin2String = function (array) {
+			var result = "";
+			for (var i = 0; i < array.length; i++) {
+				result += String.fromCharCode(array[i]);
+			}
+			return result;
+		};
+
+		function Reference() {
+			this.app_ = new Int8Array(0);
+			this.name_space_ = new Int8Array(0);
+			this.path_ = new Path();
+			this.optional_0_ = 0;
+		}
+
+		Reference.prototype.parseFrom = function (bytes) {
+			return this.merge(new ProtocolSource(bytes));
+		};
+		Reference.prototype.merge = function (source) {
+			var result = true;
+			var this_t0 = this.optional_0_;
+
+			label22:
+				while (source.hasRemaining()) {
+					var tt = source.getVarInt();
+					switch (tt) {
+						case 0:
+							result = false;
+							break label22;
+						case 106:
+							this.app_ = source.getPrefixedData();
+							this_t0 |= 1;
+							break;
+						case 114:
+							source.push(source.getVarInt());
+							if (!this.path_.merge(source)) {
+								result = false;
+								break label22;
+							}
+
+							source.pop();
+							this_t0 |= 4;
+							break;
+						case 162:
+							this.name_space_ = source.getPrefixedData();
+							this_t0 |= 2;
+							break;
+						default:
+							console.log(tt, source);
+						//this.getUninterpretedForWrite().putBytes(Integer.valueOf(tt), source.getUninterpreted(tt));
+					}
+				}
+
+			this.optional_0_ = this_t0;
+			return result;
+		};
+		Reference.prototype.getPath = function () {
+			return this.path_;
+		};
+		Reference.prototype.getApp = function () {
+			return System.bin2String(this.app_);
+		};
+		Reference.prototype.getNameSpace = function () {
+			return System.bin2String(this.name_space_);
+		};
+
+		function ProtocolSource(array, offset, length) {
+			if (offset == null) {
+				offset = 0;
+			}
+			if (length == null) {
+				length = array.length;
+			}
+			this.buf = array;
+			this.pos = offset;
+			this.limit = offset + length;
+		}
+
+		ProtocolSource.prototype.getVarInt = function () {
+			var tmp;
+			if ((tmp = this.getByteUnmasked()) >= 0) {
+				return tmp;
+			} else {
+				var result = tmp & 127;
+				if ((tmp = this.getByteUnmasked()) >= 0) {
+					result |= tmp << 7;
+				} else {
+					result |= (tmp & 127) << 7;
+					if ((tmp = this.getByteUnmasked()) >= 0) {
+						result |= tmp << 14;
+					} else {
+						result |= (tmp & 127) << 14;
+						if ((tmp = this.getByteUnmasked()) >= 0) {
+							result |= tmp << 21;
+						} else {
+							result |= (tmp & 127) << 21;
+
+							for (result |= (tmp = this.getByteUnmasked()) << 28; tmp < 0; tmp = this.getByteUnmasked()) {
+								;
+							}
+						}
+					}
+				}
+
+				this.checkLength(0);
+				return result;
+			}
+		};
+		ProtocolSource.prototype.getByteUnmasked = function () {
+			return this.buf[this.pos++];
+		};
+		ProtocolSource.prototype.checkLength = function (length) {
+			if (this.pos + length > this.limit) {
+				throw new Error("ArrayIndexOutOfBoundsException");
+			}
+		};
+		ProtocolSource.prototype.hasRemaining = function () {
+			return this.pos != this.limit;
+		};
+		ProtocolSource.prototype.getPrefixedData = function () {
+			var len = this.getVarInt();
+			this.checkLength(len);
+			var b = new Int8Array(len);
+			this.getBytes(b, 0, len);
+			return b;
+		};
+		ProtocolSource.prototype.getBytes = function (dst, offset, length) {
+			this.checkLength(length);
+			System.arraycopy(this.buf, this.pos, dst, offset, length);
+			this.pos += length;
+		};
+		ProtocolSource.prototype.push = function (length) {
+			this.checkLength(length);
+			this.getLengthStack().push(this.limit);
+			this.limit = this.pos + length;
+			return this;
+		};
+		ProtocolSource.prototype.pop = function () {
+			this.checkLength(0);
+			this.pos = this.limit;
+			this.limit = this.getLengthStack().pop();
+			return this;
+		};
+		ProtocolSource.prototype.getLengthStack = function () {
+			return this.lengthStack == null ? (this.lengthStack = new IntStack()) : this.lengthStack;
+		};
+
+		ProtocolSource.prototype.getVarLong = function () {
+			var tmp;
+			if ((tmp = this.getByteUnmasked()) >= 0) {
+				return tmp;
+			} else {
+				var result = tmp & 127;
+				if ((tmp = this.getByteUnmasked()) >= 0) {
+					result += tmp * Math.pow(2, 7);
+				} else {
+					result += (tmp & 127) * Math.pow(2, 7);
+					if ((tmp = this.getByteUnmasked()) >= 0) {
+						result += tmp * Math.pow(2, 14);
+					} else {
+						result += (tmp & 127) * Math.pow(2, 14);
+						if ((tmp = this.getByteUnmasked()) >= 0) {
+							result += tmp * Math.pow(2, 21);
+						} else {
+							result += (tmp & 127) * Math.pow(2, 21);
+							if ((tmp = this.getByteUnmasked()) >= 0) {
+								result += tmp * Math.pow(2, 28);
+							} else {
+								result += (tmp & 127) * Math.pow(2, 28);
+								if ((tmp = this.getByteUnmasked()) >= 0) {
+									result += tmp * Math.pow(2, 35);
+								} else {
+									result += (tmp & 127) * Math.pow(2, 35);
+									if ((tmp = this.getByteUnmasked()) >= 0) {
+										result += tmp * Math.pow(2, 42);
+									} else {
+										result += (tmp & 127) * Math.pow(2, 42);
+										if ((tmp = this.getByteUnmasked()) >= 0) {
+											result += tmp * Math.pow(2, 49);
+										} else {
+											result += (tmp & 127) * Math.pow(2, 49);
+											if ((tmp = this.getByteUnmasked()) >= 0) {
+												result += tmp * Math.pow(2, 56);
+											} else {
+												result += (tmp & 127) * Math.pow(2, 56);
+												result += this.getByteUnmasked() * Math.pow(2, 63);
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+
+				this.checkLength(0);
+				return result;
+			}
+		};
+
+		function IntStack() {
+
+			this.stack = new Array(1);
+			this.topPos = 0;
+		}
+
+		IntStack.prototype.push = function (i) {
+			if (this.topPos == this.stack.length) {
+				var newLength = this.stack.length * 2;
+				var copy = [];
+				System.arraycopy(this.stack, 0, copy, 0, this.stack.length);
+				this.stack = copy;
+			}
+
+			this.stack[this.topPos] = i;
+			++this.topPos;
+		};
+		IntStack.prototype.pop = function () {
+			if (this.topPos == 0) {
+				throw new Error("EmptyStackException");
+			} else {
+				return this.stack[--this.topPos];
+			}
+		};
+
+		var Base64 = {};
+		Base64.websafeDecodabet = [-9, -9, -9, -9, -9, -9, -9, -9, -9, -5, -5, -9, -9, -5, -9, -9, -9, -9, -9, -9, -9, -9, -9, -9, -9, -9, -9, -9, -9, -9, -9, -9, -5, -9, -9, -9, -9, -9, -9, -9, -9, -9, -9, -9, -9, 62, -9, -9, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, -9, -9, -9, -1, -9, -9, -9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, -9, -9, -9, -9, 63, -9, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, -9, -9, -9, -9, -9];
+		Base64.decode4to3 = function (source, srcOffset, destination, destOffset, decodabet) {
+			var outBuff;
+			if (source[srcOffset + 2] == 61) {
+				outBuff = decodabet[source[srcOffset]] << 24 >>> 6 | decodabet[source[srcOffset + 1]] << 24 >>> 12;
+				destination[destOffset] = (outBuff >>> 16);
+				return 1;
+			} else if (source[srcOffset + 3] == 61) {
+				outBuff = decodabet[source[srcOffset]] << 24 >>> 6 | decodabet[source[srcOffset + 1]] << 24 >>> 12 | decodabet[source[srcOffset + 2]] << 24 >>> 18;
+				destination[destOffset] = (outBuff >>> 16);
+				destination[destOffset + 1] = (outBuff >>> 8);
+				return 2;
+			} else {
+				outBuff = decodabet[source[srcOffset]] << 24 >>> 6 | decodabet[source[srcOffset + 1]] << 24 >>> 12 | decodabet[source[srcOffset + 2]] << 24 >>> 18 | decodabet[source[srcOffset + 3]] << 24 >>> 24;
+				destination[destOffset] = (outBuff >> 16);
+				destination[destOffset + 1] = (outBuff >> 8);
+				destination[destOffset + 2] = outBuff;
+				return 3;
+			}
+		};
+		Base64.decodeWebSafe = function (source, off, len) {
+			return Base64.decode(source, off, len, Base64.websafeDecodabet)
+		};
+		Base64.decode = function (source, off, len, decodabet) {
+			var len34 = len * 3 / 4;
+			var outBuff = new Int8Array(2 + len34);
+			var outBuffPosn = 0;
+			var b4 = new Int8Array(4);
+			var b4Posn = 0;
+			var i = false;
+			var sbiCrop = false;
+			var sbiDecode = false;
+			var paddingByteSeen = false;
+
+			for (var var15 = 0; var15 < len; ++var15) {
+				var var16 = (source[var15 + off] & 127);
+				var var17 = decodabet[var16];
+				if (var17 < -5) {
+					var var14 = source[var15 + off];
+					console.log("Bad Base64 input character at ", var15, ": ", var14, "(decimal)");
+				}
+
+				if (var17 >= -1) {
+					if (var16 == 61) {
+						if (!paddingByteSeen) {
+							if (var15 < 2) {
+								console.log("Invalid padding byte found in position ");
+								//throw new Base64DecoderException((new StringBuilder(50)).append("Invalid padding byte found in position ").append(var15).toString());
+							}
+
+							paddingByteSeen = true;
+							var out = (source[len - 1 + off] & 127);
+							if (out != 61 && out != 10) {
+								console.log("encoded value has invalid trailing byte");
+							}
+						}
+					} else {
+						if (paddingByteSeen) {
+							console.log("Data found after trailing padding byte at index ", var15);
+						}
+
+						b4[b4Posn++] = var16;
+						if (b4Posn == 4) {
+							outBuffPosn += Base64.decode4to3(b4, 0, outBuff, outBuffPosn, decodabet);
+							b4Posn = 0;
+						}
+					}
+				}
+			}
+
+			if (b4Posn != 0) {
+				if (b4Posn == 1) {
+					var var19 = len - 1;
+					console.log("single trailing character at offset ", var19);
+				}
+
+				b4[b4Posn] = 61;
+				outBuffPosn += Base64.decode4to3(b4, 0, outBuff, outBuffPosn, decodabet);
+			}
+
+			var var18 = [];
+			System.arraycopy(outBuff, 0, var18, 0, outBuffPosn);
+			return var18;
+		};
+
+
+		function Path() {
+			this.element_ = null;
+		}
+
+		Path.prototype.merge = function (source) {
+			var result = true;
+
+			while (source.hasRemaining()) {
+				var tt = source.getVarInt();
+				switch (tt) {
+					case 0:
+						result = false;
+						return result;
+					case 11:
+						if (this.addElement().merge(source)) {
+							break;
+						}
+
+						result = false;
+						return result;
+					default:
+						console.log(tt, source);
+					//this.getUninterpretedForWrite().putBytes(Integer.valueOf(tt), source.getUninterpreted(tt));
+				}
+			}
+
+			return result;
+		};
+		Path.prototype.addElement = function () {
+			var v = new Element();
+			if (this.element_ == null) {
+				this.element_ = new Array(4);
+			}
+
+			this.element_.push(v);
+			return v;
+		};
+		Path.prototype.elements = function () {
+			return this.element_;
+		};
+
+		function Element() {
+			this.type_ = new Int8Array(0);
+			this.id_ = 0;
+			this.name_ = new Int8Array(0);
+			this.optional_0_ = 0;
+		}
+
+		Element.prototype.merge = function (source) {
+			var result = true;
+			var this_t0 = this.optional_0_;
+
+			label18:
+				while (true) {
+					var tt = source.getVarInt();
+					switch (tt) {
+						case 0:
+							result = false;
+						case 12:
+							break label18;
+						case 18:
+							this.type_ = source.getPrefixedData();
+							this_t0 |= 1;
+							break;
+						case 24:
+							this.id_ = source.getVarLong();
+							this_t0 |= 2;
+							break;
+						case 34:
+							this.name_ = source.getPrefixedData();
+							this_t0 |= 4;
+							break;
+						default:
+							console.log(tt, source);
+						//this.getUninterpretedForWrite().putBytes(Integer.valueOf(tt), source.getUninterpreted(tt));
+					}
+				}
+
+			this.optional_0_ = this_t0;
+			return result;
+		};
+		Element.prototype.hasName = function () {
+			return (this.optional_0_ & 4) != 0;
+		};
+		Element.prototype.hasId = function () {
+			return (this.optional_0_ & 2) != 0;
+		};
+		Element.prototype.getName = function () {
+			return System.bin2String(this.name_);
+		};
+		Element.prototype.getId = function () {
+			return this.id_;
+		};
+		Element.prototype.getType = function () {
+			return System.bin2String(this.type_);
+		};
+
+
+	})(window);
+	if (typeof String.prototype.getBytes !== "function") {
+		String.prototype.getBytes = function () {
+			var bytes = [];
+			for (var i = 0; i < this.length; ++i) {
+				bytes.push(this.charCodeAt(i));
+			}
+			return bytes;
+		};
+	}
+</script>
