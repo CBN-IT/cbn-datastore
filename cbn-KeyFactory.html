@@ -27,8 +27,7 @@
 					"appid": reference.getApp(),
 					"namespace": reference.getNameSpace()
 				};
-				for (var i in elements) {
-					var e = elements[i];
+				elements.forEach(function (e) {
 					var kind = e.getType();
 					if (e.hasName() && e.hasId()) {
 						throw new Error("IllegalArgumentException: Invalid Key PB: both id and name are set.");
@@ -62,8 +61,7 @@
 							namespace: appIdNamespace.namespace
 						};
 					}
-				}
-
+				});
 				return parentKey;
 			}
 		};
