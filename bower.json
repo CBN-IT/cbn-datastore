@@ -1,5 +1,5 @@
 {
-    "name": "cbn-momentjs",
+    "name": "cbn-datastore",
     "private": true,
     "main": "index.html",
     "dependencies": {
