@@ -5,7 +5,7 @@
 
 		KeyFactory.stringToKey = function (encoded) {
 			var modulo = encoded.length % 4;
-			if (modulo != 0) {
+			if (modulo !== 0) {
 				encoded = encoded + "====".substring(modulo);
 			}
 
@@ -13,14 +13,13 @@
 			var decodedBytes = Base64.decodeWebSafe(encodedBytes, 0, encodedBytes.length);
 			var reference = new Reference();
 			var parsedFrom = reference.parseFrom(decodedBytes);
-			var key = createFromPb(reference);
-			return key;
+			return createFromPb(reference);
 		};
 		var createFromPb = function (reference) {
 			var parentKey = null;
 			var path = reference.getPath();
 			var elements = path.elements();
-			if (elements.length == 0) {
+			if (elements.length === 0) {
 				throw new Error("IllegalArgumentException : Invalid Key PB: no elements.");
 			} else {
 				var appIdNamespace = {
@@ -152,11 +151,36 @@
 		Reference.prototype.getPath = function () {
 			return this.path_;
 		};
+		Reference.prototype.getPath = function () {
+			return this.path_;
+		};
 		Reference.prototype.getApp = function () {
 			return System.bin2String(this.app_);
 		};
+		Reference.prototype.setApp = function (app) {
+			this.app_ = app.getBytes();
+		};
 		Reference.prototype.getNameSpace = function () {
 			return System.bin2String(this.name_space_);
+		};
+		Reference.prototype.setNameSpace = function (namespace) {
+			return this.name_space_=namespace.getBytes();
+		};
+		Reference.convertToPb = function(key){
+			//{"kind":"Client","parentKey":null,"id":0,"name":"0010N00004efM57","appid":"e~xpc-call","namespace":"agplfnhwYy1jYWxsch8LEgVGaXJtYSIUSHlwZXJjYXJlIGdsbyB6aXVhIDIM"}
+			var reference = new Reference();
+			reference.setApp(key.appid);
+			if (key.namespace.length>0) {
+				reference.setNameSpace(key.namespace);
+			}
+			var elem = new Element();
+			elem.setType(key.kind);
+			if(key.id===0){
+				elem.setId(key.id);
+			}else{
+				elem.setName(key.name);
+			}
+			
 		};
 
 		function ProtocolSource(array, offset, length) {
@@ -498,10 +522,17 @@
 		Element.prototype.getId = function () {
 			return this.id_;
 		};
+		Element.prototype.setId = function (id) {
+			this.optional_0_ |= 2;
+			this.id_=id;
+		};
 		Element.prototype.getType = function () {
 			return System.bin2String(this.type_);
 		};
-
+		Element.prototype.setType = function (type) {
+			this.optional_0_ |= 1;
+			this.type_ = type.getBytes();
+		};
 
 	})(window);
 	if (typeof String.prototype.getBytes !== "function") {
@@ -513,4 +544,5 @@
 			return bytes;
 		};
 	}
+	console.log(KeyFactory.stringToKey("agplfnhwYy1jYWxschsLEgZDbGllbnQiDzAwMTBOMDAwMDRlZk01NwyiATxhZ3BsZm5od1l5MWpZV3hzY2g4TEVnVkdhWEp0WVNJVVNIbHdaWEpqWVhKbElHZHNieUI2YVhWaElESU0"))
 </script>
